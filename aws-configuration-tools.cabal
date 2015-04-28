@@ -19,7 +19,7 @@ library
   exposed-modules:     Configuration.Utils.Aws.Credentials
   -- other-modules:
   -- other-extensions:
-  build-depends:       base >=4.7 && <4.8,
+  build-depends:       base >=4.7 && <5.0,
                        base-unicode-symbols,
                        configuration-tools >=0.2.12,
                        aws >=0.11,
