@@ -32,7 +32,8 @@
 -- Stability: experimental
 --
 module Configuration.Utils.Aws.Credentials
-( CredentialConfigKey(..)
+( -- * Configuration Types
+  CredentialConfigKey(..)
 , credentialConfigKeyId
 , credentialConfigKeySecret
 , validateCredentialConfigKey
@@ -49,6 +50,10 @@ module Configuration.Utils.Aws.Credentials
 , pCredentialConfig
 , pCredentialConfig_
 , validateCredentialConfig
+
+  -- * Load Credentials
+, credentialsFromConfig
+, LoadCredentialsException(..)
 ) where
 
 import Aws
@@ -57,8 +62,11 @@ import Configuration.Utils
 import Configuration.Utils.Internal
 import Configuration.Utils.Validation
 
+import Control.Exception
 import Control.Monad
 import Control.Monad.Error.Class
+import Control.Monad.IO.Class
+import Control.Monad.Unicode
 
 import Data.Maybe
 import Data.Monoid.Unicode
@@ -176,8 +184,8 @@ defaultCredentialConfig = CredentialConfig
   , _credentialConfigInstanceMetadata = False
   }
 
-validateCredentialsConfig ∷ ConfigValidation CredentialConfig λ
-validateCredentialsConfig CredentialConfig{..} = do
+validateCredentialConfig ∷ ConfigValidation CredentialConfig λ
+validateCredentialConfig CredentialConfig{..} = do
   void $ for _credentialConfigKey validateCredentialConfigKey
   void $ for _credentialConfigFile validateCredentialConfigFile
   unless (or enabledList) $
@@ -258,3 +266,57 @@ pCredentialConfig prefix = id
 --
 pCredentialConfig_ ∷ MParser CredentialConfig
 pCredentialConfig_ = pCredentialConfig ""
+
+data LoadCredentialsException
+  = LoadCredentialsFromFileFailed CredentialConfigFile
+  | LoadCredentialsFromEnvironementFailed
+  | LoadCredentialsFromInstanceMetadataFailed
+  | NoCredentialLoadingMethodSpecified
+  deriving (Eq, Show, Typeable)
+
+instance Exception LoadCredentialsException
+
+-- | Load Credentials according to the credential configuration
+--
+-- Credentials are loaded with a precedence according to the order of
+-- the record fields of 'CredentialConfig':
+--
+-- 1. '_credentialConfigKey', loads the explicitely specified credentials,
+--
+-- 2. '_credentialConfigFile', loads credentials with the given key name
+--    from the given file,
+--
+-- 3. '_credentialConfigEnvironment', loads credentials from the
+--    environment varialbes @AWS_ACCESS_KEY_ID@ and @AWS_ACCESS_KEY_SECRET@), and
+--
+-- 3. '_credentialConfigInstanceMetadata', load the credentials from the
+--    EC2 instance metadata.
+--
+-- It is an error if a particular method is specified in the configuration but
+-- loading the credentials with that methods fails.
+--
+credentialsFromConfig
+  ∷ (MonadError LoadCredentialsException m, MonadIO m)
+  ⇒ CredentialConfig
+  → m Credentials
+credentialsFromConfig CredentialConfig{..}
+  | Just CredentialConfigKey{..} ← _credentialConfigKey =
+      liftIO $ makeCredentials _credentialConfigKeyId _credentialConfigKeySecret
+
+  | Just ccf@(CredentialConfigFile file awsKeyName) ← _credentialConfigFile =
+      liftIO (loadCredentialsFromFile file awsKeyName) ≫= \case
+        Nothing → throwError $ LoadCredentialsFromFileFailed ccf
+        Just c → return c
+
+  | _credentialConfigEnvironment =
+      liftIO loadCredentialsFromEnv ≫= \case
+        Nothing → throwError LoadCredentialsFromEnvironementFailed
+        Just c → return c
+
+  | _credentialConfigInstanceMetadata =
+      liftIO loadCredentialsFromInstanceMetadata ≫= \case
+        Nothing → throwError LoadCredentialsFromInstanceMetadataFailed
+        Just c → return c
+
+  | otherwise = throwError NoCredentialLoadingMethodSpecified
+
