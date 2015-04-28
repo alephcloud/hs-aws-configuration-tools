@@ -189,27 +189,32 @@ instance FromJSON (CredentialConfig → CredentialConfig) where
       <*< credentialConfigEnvironment ..: "environment" % o
       <*< credentialConfigInstanceMetadata ..: "metadata" % o
 
-pCredentialConfig ∷ MParser CredentialConfig
-pCredentialConfig = id
+-- | A command-line argument parser for 'CredentialConfig'. The @prefix@
+-- argument will be prepended directly onto the argument names.
+--
+pCredentialConfig
+  ∷ String -- ^ prefix
+  → MParser CredentialConfig
+pCredentialConfig prefix = id
   <$< credentialConfigKey .:: fmap Just % pCredentialConfigKey
   <*< credentialConfigFile .:: fmap Just % pCredentialConfigFile
   <*< credentialConfigEnvironment .:: boolOption
-      % long "credentials-from-environment"
+      % long (prefix ⊕ "credentials-from-environment")
       ⊕ help "load AWS access credentials from environment variables (AWS_ACCESS_KEY_ID and AWS_ACCESS_KEY_SECRET)"
   <*< credentialConfigInstanceMetadata .:: boolOption
-      % long "credentials-from-metadata"
+      % long (prefix ⊕ "credentials-from-metadata")
       ⊕ help "load AWS access credentials from the instance metadata"
 
   where
     pKeyId =
       B8.pack <$> strOption
-        % long "credentials-key-id"
+        % long (prefix ⊕ "credentials-key-id")
         ⊕ metavar "AWS_ACCESS_KEY_ID"
         ⊕ help "Id of the AWS access key"
 
     pKeySecret =
       B8.pack <$> strOption
-        % long "credentials-key-secret"
+        % long (prefix ⊕ "credentials-key-secret")
         ⊕ metavar "AWS_ACCESS_KEY_SECRET"
         ⊕ help "Secret of the AWS access key"
 
@@ -218,15 +223,20 @@ pCredentialConfig = id
 
     pKeyName =
       T.pack <$> strOption
-        % long "credentials-key-name"
+        % long (prefix ⊕ "credentials-key-name")
         ⊕ metavar "STRING"
         ⊕ help "the name of the access key in the access key file"
         ⊕ value (T.unpack credentialsDefaultKey)
 
     pFileName =
       fileOption
-        % long "credentials-key-file"
+        % long (prefix ⊕ "credentials-key-file")
         ⊕ help "the name of the file with access keys for the AWS API"
 
     pCredentialConfigFile =
       CredentialConfigFile <$> pFileName <*> pKeyName
+
+-- | This is 'pCredentialConfig' with an empty prefix.
+--
+pCredentialConfig_ ∷ MParser CredentialConfig
+pCredentialConfig_ = pCredentialConfig ""
