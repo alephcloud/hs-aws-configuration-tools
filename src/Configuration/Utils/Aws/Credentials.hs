@@ -31,7 +31,25 @@
 -- Maintainer: Jon Sterling <jsterling@alephcloud.com>
 -- Stability: experimental
 --
-module Configuration.Utils.Aws.Credentials where
+module Configuration.Utils.Aws.Credentials
+( CredentialConfigKey(..)
+, credentialConfigKeyId
+, credentialConfigKeySecret
+, validateCredentialConfigKey
+, CredentialConfigFile(..)
+, credentialConfigFileName
+, credentialConfigKeyName
+, validateCredentialConfigFile
+, CredentialConfig(..)
+, credentialConfigKey
+, credentialConfigFile
+, credentialConfigEnvironment
+, credentialConfigInstanceMetadata
+, defaultCredentialConfig
+, pCredentialConfig
+, pCredentialConfig_
+, validateCredentialConfig
+) where
 
 import Aws
 
