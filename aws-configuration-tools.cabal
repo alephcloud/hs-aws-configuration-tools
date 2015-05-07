@@ -15,6 +15,16 @@ build-type:          Simple
 -- extra-source-files:
 cabal-version:       >=1.10
 
+source-repository head
+    type: git
+    location: https://github.com/alephcloud/hs-aws-configuration-tools.git
+
+source-repository this
+    type: git
+    location: https://github.com/alephcloud/hs-aws-configuration-tools.git
+    tag: 0.1.0.0
+
+
 library
   exposed-modules:     Configuration.Utils.Aws.Credentials
   -- other-modules:
